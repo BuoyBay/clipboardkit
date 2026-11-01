@@ -1,0 +1,107 @@
+Private Function ClipboardCustomType(mimeType As String) As String
+    Dim normalized As String = String.LCase(String.Trim(mimeType))
+    Dim slashes As Integer = 0
+    For Each character As String In String.Chars(normalized)
+        Dim code As Integer = String.Asc(character)
+        If code = 47 Then
+            slashes += 1
+        ElseIf Not ((code >= 97 And code <= 122) Or (code >= 48 And code <= 57) Or String.Contains("!#$%&'*+-.^_`|~", character)) Then
+            Throw New InvalidArgumentException("Custom clipboard types must be MIME type/subtype tokens without parameters")
+        End If
+    Next
+    If slashes <> 1 Or String.Left(normalized, 1) = "/" Or String.Right(normalized, 1) = "/" Then Throw New InvalidArgumentException("A MIME type/subtype is required")
+    If normalized = "text/plain" Or normalized = "text/plain;charset=utf-8" Or normalized = "image/png" Or normalized = "text/uri-list" Then Throw New InvalidArgumentException("Use the built-in text, picture or file representation")
+    Return normalized
+End Function
+
+''' A single-use, multi-representation clipboard transaction. Nothing is written until Commit.
+Public Class ClipboardPayload
+    Private Property mText As String
+    Private Property mHasText As Boolean = False
+    Private Property mPicture As Picture = Nil
+    Private Property mFiles As Array Of FileSystemItem = []
+    Private Property mHasFiles As Boolean = False
+    Private Property mTypes As Array Of String = []
+    Private Property mData As Array Of Bytes = []
+    Private Property mCommitted As Boolean = False
+
+    Public Property IsCommitted As Boolean
+        Get
+            Return Me.mCommitted
+        End Get
+    End Property
+    Public Property IsEmpty As Boolean
+        Get
+            Return Not Me.mHasText And Me.mPicture = Nil And Not Me.mHasFiles And Array.Count(Me.mTypes) = 0
+        End Get
+    End Property
+    Private Sub Editable()
+        If Me.mCommitted Then Throw New InvalidArgumentException("Clipboard payload has already been committed")
+    End Sub
+    Public Sub SetText(value As String)
+        Me.Editable()
+        Me.mText = value
+        Me.mHasText = True
+    End Sub
+    Public Sub SetPicture(value As Picture)
+        Me.Editable()
+        If value = Nil Then Throw New InvalidArgumentException("Clipboard picture must not be Nil")
+        Me.mPicture = value
+    End Sub
+    Public Sub SetFiles(values As Array Of FileSystemItem)
+        Me.Editable()
+        If Array.Count(values) = 0 Then Throw New InvalidArgumentException("Clipboard file list must not be empty")
+        Dim copy As Array Of FileSystemItem = []
+        For Each item As FileSystemItem In values
+            If item = Nil Then Throw New InvalidArgumentException("Clipboard file must not be Nil")
+            copy.Append(item)
+        Next
+        Me.mFiles = copy
+        Me.mHasFiles = True
+    End Sub
+    Public Sub SetData(mimeType As String, value As Bytes)
+        Me.Editable()
+        Dim normalized As String = ClipboardCustomType(mimeType)
+        If value = Nil Then Throw New InvalidArgumentException("Clipboard bytes must not be Nil")
+        Dim copy As New Bytes()
+        copy.Append(value)
+        For i As Integer = 0 To Array.Count(Me.mTypes) - 1
+            If Me.mTypes(i) = normalized Then
+                Me.mData(i) = copy
+                Return
+            End If
+        Next
+        Me.mTypes.Append(normalized)
+        Me.mData.Append(copy)
+    End Sub
+    Public Sub SetJSON(mimeType As String, value As JSONItem)
+        Me.SetData(mimeType, Bytes.FromString(Json.Stringify(value), Text.Encodings.UTF8))
+    End Sub
+    Public Sub Commit()
+        Me.Editable()
+        If Me.IsEmpty Then Throw New InvalidArgumentException("Refusing to commit an empty clipboard payload")
+        Dim writer As New Clipboard()
+        If Me.mHasText Then writer.Text = Me.mText
+        If Me.mPicture <> Nil Then writer.Picture = Me.mPicture
+        If Me.mHasFiles Then writer.Files = Me.mFiles
+        For i As Integer = 0 To Array.Count(Me.mTypes) - 1
+            writer.SetData(Me.mTypes(i), Me.mData(i))
+        Next
+        writer.Close()
+        Me.mCommitted = True
+    End Sub
+End Class
+
+''' Best-effort capture of known representations; unknown clipboard formats are not enumerated.
+Public Function CaptureClipboard(customTypes As Array Of String, includePicture As Boolean = False) As ClipboardPayload
+    Dim payload As New ClipboardPayload()
+    Dim reader As New Clipboard()
+    If reader.HasText Then payload.SetText(reader.Text)
+    If reader.HasFiles Then payload.SetFiles(reader.Files)
+    If includePicture And reader.HasPicture Then payload.SetPicture(reader.Picture)
+    For Each mimeType As String In customTypes
+        Dim normalized As String = ClipboardCustomType(mimeType)
+        If reader.HasData(normalized) Then payload.SetData(normalized, reader.GetData(normalized))
+    Next
+    Return payload
+End Function
