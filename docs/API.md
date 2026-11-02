@@ -28,8 +28,3 @@ Call `Commit()` only following a user Copy action. This library never watches,
 clears, restores or commits the clipboard automatically. The native OS owns the
 clipboard after commit; the package cannot promise OS-level acceptance feedback
 because Buoy's `Clipboard.Close()` returns no status.
-
-`tests/system_integrations_test.bui` verifies staging, empty-write rejection and
-built-in collision rejection without committing anything or reading user data.
-
-Maintainers run the private validation suite before release. See the repository README for public build instructions.

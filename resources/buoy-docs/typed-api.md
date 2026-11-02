@@ -96,8 +96,6 @@ No parameters.
 
 Returns: no value.
 
-## ClipboardKit functions
-
 ### CaptureClipboard
 
 `Public Function CaptureClipboard(customTypes As Array Of String, includePicture As Boolean = False) As ClipboardPayload`

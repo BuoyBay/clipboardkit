@@ -41,5 +41,4 @@ The package uses Buoy native clipboard support on macOS, Windows, and Linux. On 
 
 See the [complete usage example](getting-started.md) and the [package overview](index.md).
 
-
 [Full typed API: properties, parameters, defaults, and returns](typed-api.md)
