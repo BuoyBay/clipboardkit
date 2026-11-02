@@ -1,4 +1,4 @@
-# Validated multi-format clipboard payloads
+# Multi-format clipboard payloads
 
 `Import clipboardkit` adds a single-use `ClipboardPayload` transaction above
 Buoy's native `Clipboard`. The distinct package name avoids colliding with the

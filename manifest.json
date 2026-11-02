@@ -2,7 +2,7 @@
     "schema": 1,
     "name": "clipboardkit",
     "version": "0.1.0",
-    "description": "Validated multi-format clipboard payloads",
+    "description": "Multi-format clipboard payloads",
     "platforms": [
         "arm64-apple-macos",
         "x86_64-apple-macos",
